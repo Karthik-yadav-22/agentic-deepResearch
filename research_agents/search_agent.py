@@ -3,34 +3,29 @@ import requests
 from bs4 import BeautifulSoup
 
 @function_tool
-async def url_scraper(url:str)->str:
-    #took this part of the code from web
+async def url_scraper(url: str) -> str:
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
-        
+
         try:
             soup = BeautifulSoup(response.text, 'html.parser')
-            
             for script in soup(["script", "style"]):
                 script.extract()
-                
             text = soup.get_text(separator=' ', strip=True)
-            
             lines = (line.strip() for line in text.splitlines())
             chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
             text = ' '.join(chunk for chunk in chunks if chunk)
-            
             return text[:5000] if len(text) > 5000 else text
         except ImportError:
             return response.text[:5000]
     except Exception as e:
-        return f"Failed to scrape content from {url}: {str(e)}"
+        return f"{url}"
 
-SEARCH_AGENT_PROMPT="""
+SEARCH_AGENT_PROMPT = """
 You are a research assistant. Given a URL and its title, you will analyze the content of the URL
 and produce a concise summary of the information. The summary must be 2-3 paragraphs.
 Capture the main points. Write succinctly, no need to have complete sentences or perfect 
@@ -39,7 +34,7 @@ essence and ignore any fluff. Do not include any additional commentary other tha
 itself.
 """
 
-search_agent= Agent(
+search_agent = Agent(
     name="Search Agent",
     instructions=SEARCH_AGENT_PROMPT,
     tools=[url_scraper]

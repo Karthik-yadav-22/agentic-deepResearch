@@ -2,6 +2,8 @@ import os
 import sqlite3
 import tempfile
 
+from s3_utils import delete_s3_object, is_s3_path
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 if os.getenv("VERCEL") == "1":
@@ -109,8 +111,12 @@ def delete_book(book_id):
     cursor.execute("DELETE FROM books WHERE id = ?", (book_id,))
     conn.commit()
     conn.close()
-    try:
-        if os.path.exists(book["file_path"]):
-            os.remove(book["file_path"])
-    except OSError:
-        pass
+
+    if is_s3_path(book["file_path"]):
+        delete_s3_object(book["file_path"])
+    else:
+        try:
+            if os.path.exists(book["file_path"]):
+                os.remove(book["file_path"])
+        except OSError:
+            pass
