@@ -6,3 +6,4 @@ rich
 python-dotenv
 requests
 pymupdf
+flask
