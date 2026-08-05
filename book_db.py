@@ -1,9 +1,16 @@
 import os
 import sqlite3
+import tempfile
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "research.db")
-BOOKS_DIR = os.path.join(BASE_DIR, "books")
+
+if os.getenv("VERCEL") == "1":
+    DATA_DIR = tempfile.gettempdir()
+else:
+    DATA_DIR = BASE_DIR
+
+DB_PATH = os.path.join(DATA_DIR, "research.db")
+BOOKS_DIR = os.path.join(DATA_DIR, "books")
 
 os.makedirs(BOOKS_DIR, exist_ok=True)
 
