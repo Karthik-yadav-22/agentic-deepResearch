@@ -1,19 +1,26 @@
-# db_search_agent.py
+# research_agents/db_search_agent.py
 import sqlite3
 import os
 import re
-from agents import Agent, Runner
 
-DB_PATH = "research.db"
+from book_db import DB_PATH  # use the same DB path as the app
+
+try:
+    from agents import Agent, Runner
+except Exception:
+    # avoid import-time failure in contexts where 'agents' isn't available
+    Agent = None
+    Runner = None
 
 
 def find_books_for_topic(topic: str) -> list[dict]:
-
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # Split topic into individual keywords and match any of them
     keywords = topic.lower().strip().split()
+    if not keywords:
+        return []
     conditions = " OR ".join(["topic LIKE ?" for _ in keywords])
     params = [f"%{kw}%" for kw in keywords]
 
@@ -73,18 +80,17 @@ async def search_db_for_topic(topic: str) -> list[dict]:
     results = []
 
     for book in books:
-        extracted_text = extract_relevant_text_from_pdf(book["file_path"], topic)
+        text = extract_relevant_text_from_pdf(book["file_path"], topic)
 
-        if extracted_text.startswith("PyMuPDF not installed") or extracted_text.startswith("PDF not found") or extracted_text.startswith("No relevant content found"):
-            summary = extracted_text
+        # If Runner/Agent are available, run the book summarizer agent; otherwise keep raw text
+        if Runner is not None and 'book_summary_agent' in globals():
+            try:
+                summary_result = await Runner.run(book_summary_agent, input=f"Book title: {book['book_name']}\nTopic: {topic}\n\nExtracted text:\n{text}")
+                summary = summary_result.final_output
+            except Exception:
+                summary = text
         else:
-            input_text = (
-                f"Book title: {book['book_name']}\n"
-                f"Topic: {topic}\n\n"
-                f"Extracted text:\n{extracted_text}"
-            )
-            summary_result = await Runner.run(book_summary_agent, input=input_text)
-            summary = summary_result.final_output
+            summary = text
 
         results.append({
             "title": book["book_name"],
@@ -96,6 +102,7 @@ async def search_db_for_topic(topic: str) -> list[dict]:
     return results
 
 
+# Optional: define book_summary_agent here if you want (kept out for clarity)
 BOOK_SUMMARY_PROMPT = """
 You are a research assistant. You will receive extracted text from a book PDF
 that is relevant to a research topic. Summarize the core ideas, main points,
@@ -105,7 +112,8 @@ Write a concise 2-3 paragraph summary. Focus on the most important
 information related to the topic, avoid fluff, and do not add extra commentary.
 """
 
-book_summary_agent = Agent(
-    name="Book Summary Agent",
-    instructions=BOOK_SUMMARY_PROMPT,
-)
+if Agent is not None:
+    book_summary_agent = Agent(
+        name="Book Summary Agent",
+        instructions=BOOK_SUMMARY_PROMPT,
+    )
