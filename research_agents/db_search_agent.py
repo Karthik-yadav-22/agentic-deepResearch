@@ -2,6 +2,7 @@
 import sqlite3
 import os
 import re
+from agents import Agent, Runner
 
 DB_PATH = "research.db"
 
@@ -67,18 +68,44 @@ def extract_relevant_text_from_pdf(file_path: str, topic: str, max_chars: int = 
     return combined[:max_chars]
 
 
-def search_db_for_topic(topic: str) -> list[dict]:
-
+async def search_db_for_topic(topic: str) -> list[dict]:
     books = find_books_for_topic(topic)
     results = []
 
     for book in books:
-        text = extract_relevant_text_from_pdf(book["file_path"], topic)
+        extracted_text = extract_relevant_text_from_pdf(book["file_path"], topic)
+
+        if extracted_text.startswith("PyMuPDF not installed") or extracted_text.startswith("PDF not found") or extracted_text.startswith("No relevant content found"):
+            summary = extracted_text
+        else:
+            input_text = (
+                f"Book title: {book['book_name']}\n"
+                f"Topic: {topic}\n\n"
+                f"Extracted text:\n{extracted_text}"
+            )
+            summary_result = await Runner.run(book_summary_agent, input=input_text)
+            summary = summary_result.final_output
+
         results.append({
             "title": book["book_name"],
             "url": f"local://{book['file_path']}",
-            "summary": text,
+            "summary": summary,
             "source": "book"
         })
 
     return results
+
+
+BOOK_SUMMARY_PROMPT = """
+You are a research assistant. You will receive extracted text from a book PDF
+that is relevant to a research topic. Summarize the core ideas, main points,
+and useful details from the extracted text.
+
+Write a concise 2-3 paragraph summary. Focus on the most important
+information related to the topic, avoid fluff, and do not add extra commentary.
+"""
+
+book_summary_agent = Agent(
+    name="Book Summary Agent",
+    instructions=BOOK_SUMMARY_PROMPT,
+)

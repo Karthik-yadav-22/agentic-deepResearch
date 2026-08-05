@@ -4,3 +4,5 @@ __pycache__/
 *.db
 chroma_db/
 .env
+ran.ipynb
+*.md

@@ -8,7 +8,7 @@ from research_agents.db_search_agent import search_db_for_topic
 from rich.console import Console
 from rich.panel import Panel
 from rich.markdown import Markdown
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from pydantic import BaseModel
 
 console=Console()
@@ -50,10 +50,9 @@ class ResearchCoordinator:
         
     def duckduckgo_search(self, query:str):
         try:
-            result=DDGS().text(query, region="ind-en", safesearch="on", max_result="1")
+            result=DDGS().text(query, region="ind-en", safesearch="on", max_results="1")
             return result
         except Exception as ex:
-            console.print("[bold red]error in fetching information [/bold red]")
             return []
 
     async def search_results(self, quries: list[str]):
@@ -64,7 +63,7 @@ class ResearchCoordinator:
             
     async def perform_research_for_queries(self, queries: list[str]):
         for query in queries:
-            console.print(f"\n[bold cyan]Searching web:[/bold cyan] {query}")
+            console.print(f"\n[bold cyan]Searching web & books:[/bold cyan] {query}")
             web_results = self.duckduckgo_search(query)
             for result in web_results:
                 start = time.time()
@@ -78,8 +77,7 @@ class ResearchCoordinator:
                 ))
                 console.print(f"  [green]Web:[/green] {result['title']} ({elapsed}s)")
 
-            console.print(f"[bold magenta]Searching books:[/bold magenta] {query}")
-            book_results = search_db_for_topic(query)
+            book_results = await search_db_for_topic(query)
             for result in book_results:
                 self.search_results.append(SearchResult(
                     title=result["title"],

@@ -1,7 +1,8 @@
 openai-agents
 pydantic
-duckduckgo-search
+ddgs
 bs4
 rich
 python-dotenv
 requests
+pymupdf
