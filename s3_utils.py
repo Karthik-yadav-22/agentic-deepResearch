@@ -31,7 +31,7 @@ def generate_presigned_post(key: str, content_type: str) -> dict:
     return client.generate_presigned_post(
         Bucket=S3_BUCKET_NAME,
         Key=key,
-        Fields={"Content-Type": content_type},
+        Fields={},
         Conditions=[
             ["content-length-range", 0, 100 * 1024 * 1024]
         ],

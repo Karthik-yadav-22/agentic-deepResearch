@@ -8,3 +8,4 @@ requests
 pymupdf
 flask
 boto3
+awscli
