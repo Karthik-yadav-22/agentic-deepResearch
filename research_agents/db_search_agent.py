@@ -2,8 +2,10 @@
 import sqlite3
 import os
 import re
+import tempfile
 
 from book_db import DB_PATH  # use the same DB path as the app
+from s3_utils import download_s3_to_temp, is_s3_path
 
 try:
     from agents import Agent, Runner
@@ -38,35 +40,52 @@ def find_books_for_topic(topic: str) -> list[dict]:
 
 
 def extract_relevant_text_from_pdf(file_path: str, topic: str, max_chars: int = 4000) -> str:
-
     try:
         import fitz  # PyMuPDF
     except ImportError:
         return "PyMuPDF not installed. Run: pip install pymupdf"
 
-    if not os.path.exists(file_path):
+    pdf_path = file_path
+    temp_file_path = None
+
+    if is_s3_path(file_path):
+        try:
+            temp_file_path = download_s3_to_temp(file_path)
+            pdf_path = temp_file_path
+        except Exception as exc:
+            return f"Failed to download S3 PDF: {exc}"
+
+    if not os.path.exists(pdf_path):
+        if temp_file_path:
+            return f"PDF not found after S3 download: {pdf_path}"
         return f"PDF not found at path: {file_path}"
 
     keywords = topic.lower().split()
-    doc = fitz.open(file_path)
     relevant_chunks = []
     total_chars = 0
 
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        text = page.get_text()
+    try:
+        doc = fitz.open(pdf_path)
+        for page_num in range(len(doc)):
+            page = doc[page_num]
+            text = page.get_text()
 
-        # Check if page is relevant to topic
-        text_lower = text.lower()
-        if any(kw in text_lower for kw in keywords):
-            chunk = f"[Page {page_num + 1}]\n{text.strip()}"
-            relevant_chunks.append(chunk)
-            total_chars += len(chunk)
+            # Check if page is relevant to topic
+            text_lower = text.lower()
+            if any(kw in text_lower for kw in keywords):
+                chunk = f"[Page {page_num + 1}]\n{text.strip()}"
+                relevant_chunks.append(chunk)
+                total_chars += len(chunk)
 
-        if total_chars >= max_chars:
-            break
-
-    doc.close()
+            if total_chars >= max_chars:
+                break
+        doc.close()
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except OSError:
+                pass
 
     if not relevant_chunks:
         return f"No relevant content found for '{topic}' in this book."

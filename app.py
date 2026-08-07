@@ -243,6 +243,7 @@ def upload_script():
           return false;
         }
         fileUrlInput.value = data.file_url;
+        fileInput.value = "";
         return true;
       }
       async function handleBookForm(event) {
